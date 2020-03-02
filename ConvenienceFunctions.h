@@ -1,9 +1,10 @@
 #ifndef CONVENIENCEFUNCTIONS_H
 #define CONVENIENCEFUNCTIONS_H
 
-#include <QApplication>
+#include <QGuiApplication>
 #include <QWidget>
-#include <QDesktopWidget>
+#include <QScreen>
+#include <QWindow>
 #include <QDebug>
 
 //This will center a widget on the current screen/monitor that the cursor is on,
@@ -21,16 +22,15 @@ static inline void centerWidget(QWidget* widget, int screenNum = -1){
         widget->layout()->activate();
     }
 
-    int mouseScreen(0);
+    QScreen* mouseScreen(nullptr);
 
-    if(screenNum == -1 || screenNum >= qApp->desktop()->screenCount()){
-        QPoint globalCursorPos = QCursor::pos();
-        mouseScreen = qApp->desktop()->screenNumber(globalCursorPos);
+    if(screenNum == -1 || screenNum >= QGuiApplication::screens().size()){
+        mouseScreen = QGuiApplication::screenAt(QCursor::pos());
     }else{
-        mouseScreen = screenNum;
+        mouseScreen = QGuiApplication::screens().at(screenNum);
     }
 
-    QRect mouseScreenGeometry = qApp->desktop()->screen(mouseScreen)->geometry();
+    QRect mouseScreenGeometry = mouseScreen->geometry();
 
     int xPos = mouseScreenGeometry.x() + (mouseScreenGeometry.width() / 2) - (widget->width() / 2);
     int yPos = (mouseScreenGeometry.height() / 2) - (widget->height() / 2);

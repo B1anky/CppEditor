@@ -5,21 +5,28 @@
 #include <QTextDocumentFragment>
 #include <QPainter>
 #include <QTextBlock>
-
+#include <QHBoxLayout>
+#include <QVBoxLayout>
+#include <QGuiApplication>
+#include <QWindow>
+#include <QScreen>
 
 #include <QDebug>
 
 #include "TextEditor.h"
+#include "TextOverviewTextEdit.h"
 #include "TextEditorLineNumberArea.h"
 #include "Highlighter.h"
 #include "AnimatedHoverScrollBar.h"
 
 TextEditor::TextEditor(bool tabsAsSpaces, QWidget* parent) :
-    QPlainTextEdit(parent),
-    m_tabsAsSpaces(tabsAsSpaces),
+    QPlainTextEdit(parent),    
     m_highlighter(nullptr),
+    m_tabsAsSpaces(tabsAsSpaces),
     m_horizontalScrollBar(nullptr),
-    m_verticalScrollBar(nullptr)
+    m_verticalScrollBar(nullptr),
+    m_textOverviewTextEdit(nullptr),
+    m_textOverviewTextEditMaxWidth(150)
 {
     m_highlighter = new Highlighter(this);
     m_highlighter->setDocument(this->document());
@@ -27,35 +34,57 @@ TextEditor::TextEditor(bool tabsAsSpaces, QWidget* parent) :
     m_font.setPointSize(12);
 
     setFrameStyle(QFrame::NoFrame);
+    setLineWrapMode(QPlainTextEdit::NoWrap);
 
-    //setAcceptRichText(false);
+    m_textOverviewTextEdit = new TextOverviewTextEdit(this);
+    m_textOverviewHighlighter = new Highlighter(m_textOverviewTextEdit);
+    m_textOverviewHighlighter->setDocument(m_textOverviewTextEdit->document());
 
-    m_horizontalScrollBar = new AnimatedHoverScrollBar(QColor(125, 125, 95), QColor(50, 88, 187));
-    m_horizontalScrollBar->setTransitionDuration(500);
+    m_textOverviewTextEdit->setFixedWidth((m_textOverviewTextEditMaxWidth / QGuiApplication::screenAt(QCursor::pos())->availableGeometry().width()) * this->width());
+
+    m_horizontalScrollBar = new AnimatedHoverScrollBar;
     setHorizontalScrollBar(m_horizontalScrollBar);
 
-    m_verticalScrollBar = new AnimatedHoverScrollBar(QColor(125, 125, 95), QColor(50, 88, 187));
-    m_horizontalScrollBar->setTransitionDuration(500);
+    m_verticalScrollBar = new AnimatedHoverScrollBar;
     setVerticalScrollBar(m_verticalScrollBar);
 
     setFont(m_font);
+    QFont tinyFont(m_font);
+    tinyFont.setPointSize(1);
+    m_textOverviewTextEdit->setFont(tinyFont);
     //setTab
     QPalette palette(this->palette());
     palette.setBrush(QPalette::Base, QColor(20, 25, 31));
     palette.setBrush(QPalette::Text, QColor(208, 223, 230));
+    palette.setColor(QPalette::Inactive, QPalette::Highlight, palette.color(QPalette::Active, QPalette::Highlight));
+    palette.setColor(QPalette::Inactive, QPalette::Text, palette.color(QPalette::Active, QPalette::Text));
+    palette.setColor(QPalette::Inactive, QPalette::HighlightedText, palette.color(QPalette::Active, QPalette::HighlightedText));
 
     setPalette(palette);
+    m_textOverviewTextEdit->setPalette(palette);
 
     m_lineNumberArea = new TextEditorLineNumberArea(this);
 
-
-    connect(this, &TextEditor::blockCountChanged,     this, &TextEditor::updateLineNumberAreaWidth);
-    connect(this, &TextEditor::updateRequest,         this, &TextEditor::updateLineNumberArea);
-    connect(this, &TextEditor::cursorPositionChanged, this, &TextEditor::highlightCurrentLine);
+    connect(this,                      &TextEditor::blockCountChanged,     this, &TextEditor::updateLineNumberAreaWidth,     Qt::DirectConnection);
+    connect(this,                      &TextEditor::updateRequest,         this, &TextEditor::updateLineNumberArea,          Qt::DirectConnection);
+    connect(this,                      &TextEditor::cursorPositionChanged, this, &TextEditor::highlightCurrentLine,          Qt::DirectConnection);
+    connect(this,                      &TextEditor::textChanged,           this, &TextEditor::onTextChanged,                 Qt::DirectConnection);
+    connect(this,                      &TextEditor::selectionChanged,      this, &TextEditor::highlightInOverviewtextEdit,   Qt::DirectConnection);
+    connect(this->verticalScrollBar(), &QScrollBar::valueChanged,          this, &TextEditor::scrollOverview,                Qt::DirectConnection);
 
     updateLineNumberAreaWidth(0);
     highlightCurrentLine();
+/*
+    this->setVerticalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAlwaysOn);
+    this->setHorizontalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAlwaysOn);
+    QWidget* test = new QWidget(this);
+    test->setPalette(palette);
+    test->setFixedHeight(50);
+    test->setFixedWidth(50);
 
+    setCornerWidget(test);
+    test->show();
+*/
 }
 
 int TextEditor::lineNumberAreaWidth(){
@@ -73,25 +102,33 @@ int TextEditor::lineNumberAreaWidth(){
 }
 
 void TextEditor::updateLineNumberAreaWidth(int /* newBlockCount */){
-    setViewportMargins(lineNumberAreaWidth(), 0, 0, 0);
+    setViewportMargins(lineNumberAreaWidth(), 0, m_textOverviewTextEdit->width(), 0);
 }
 
 void TextEditor::updateLineNumberArea(const QRect &rect, int dy){
 
-    if (dy)
+    if (dy){
         m_lineNumberArea->scroll(0, dy);
-    else
-        m_lineNumberArea->update(0, rect.y(), m_lineNumberArea->width(), rect.height());
+    }else{
+        m_lineNumberArea->update(0, rect.y(), m_lineNumberArea->width(), rect.height());        
+    }
 
-    if (rect.contains(viewport()->rect()))
-        updateLineNumberAreaWidth(0);      
+    if (rect.contains(viewport()->rect())){
+        updateLineNumberAreaWidth(0);
+    }
 }
 
-void TextEditor::resizeEvent(QResizeEvent *e){
+void TextEditor::resizeEvent(QResizeEvent *e){    
     QPlainTextEdit::resizeEvent(e);
-
+    qDebug() << "WHY AM I RESIZING";
     QRect cr = contentsRect();
+    double curScreenMaxWidth = static_cast<double>(this->window()->windowHandle()->screen()->availableGeometry().width());
+    m_textOverviewTextEdit->setFixedWidth((m_textOverviewTextEditMaxWidth / curScreenMaxWidth) * this->width());
     m_lineNumberArea->setGeometry(QRect(cr.left(), cr.top(), lineNumberAreaWidth(), cr.height()));
+    m_textOverviewTextEdit->setGeometry(QRect(cr.right() - m_textOverviewTextEdit->width(), cr.top(), m_textOverviewTextEdit->width(), cr.height()));
+    m_textOverviewTextEdit->verticalScrollBar()->setMaximum(this->verticalScrollBar()->maximum());
+    m_textOverviewTextEdit->horizontalScrollBar()->setValue(m_textOverviewTextEdit->horizontalScrollBar()->minimum());
+
 }
 
 void TextEditor::highlightCurrentLine(){
@@ -153,6 +190,10 @@ void TextEditor::keyPressEvent(QKeyEvent* keyEvent){
         unindent();
         keyEvent->accept();
         textCursor().endEditBlock();
+        return;
+    }else if(keyEvent->key() == Qt::Key_PageUp || keyEvent->key() == Qt::Key_PageDown){
+        QPlainTextEdit::keyPressEvent(keyEvent); //This will consume the event and move the scroll bar
+        scrollOverview(this->verticalScrollBar()->value()); //This will sync overview, since it's not a wheel event
         return;
     }
 
@@ -347,4 +388,29 @@ void TextEditor::unindentHelper(QTextCursor& cur, const QString& curLineString, 
 
     }
 
+}
+
+//Sync Overview text with TextEditor text
+void TextEditor::onTextChanged(){
+    m_textOverviewTextEdit->setPlainText(this->toPlainText());
+    m_textOverviewTextEdit->verticalScrollBar()->setMaximum(this->verticalScrollBar()->maximum());
+    m_textOverviewTextEdit->verticalScrollBar()->setValue(this->verticalScrollBar()->value());
+    m_textOverviewTextEdit->horizontalScrollBar()->setValue(m_textOverviewTextEdit->horizontalScrollBar()->minimum());
+
+}
+
+//Sync Overview scrolling with TextEditor scrolling
+void TextEditor::scrollOverview(int scrollValue){
+    m_textOverviewTextEdit->verticalScrollBar()->setMaximum(this->verticalScrollBar()->maximum());
+    m_textOverviewTextEdit->verticalScrollBar()->setValue(scrollValue);
+    m_textOverviewTextEdit->horizontalScrollBar()->setValue(m_textOverviewTextEdit->horizontalScrollBar()->minimum());
+}
+
+//Sync Overview highlighting with TextEditor highlighting
+void TextEditor::highlightInOverviewtextEdit(){
+    QTextCursor cur = m_textOverviewTextEdit->textCursor();
+    cur.setPosition(this->textCursor().selectionStart(), QTextCursor::MoveAnchor);
+    cur.setPosition(this->textCursor().selectionEnd(),   QTextCursor::KeepAnchor);
+    m_textOverviewTextEdit->setTextCursor(cur);
+    m_textOverviewTextEdit->horizontalScrollBar()->setValue(m_textOverviewTextEdit->horizontalScrollBar()->minimum());
 }

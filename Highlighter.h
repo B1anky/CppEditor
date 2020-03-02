@@ -8,13 +8,14 @@
 #include <QSyntaxHighlighter>
 
 class TextEditor;
+class QPlainTextEdit;
 
 class Highlighter : public QSyntaxHighlighter
 {
     Q_OBJECT
 
 public:
-    Highlighter(TextEditor* parent = nullptr);
+    Highlighter(QPlainTextEdit* parent = nullptr);
 
 protected:
     void highlightBlock(const QString &text) override;

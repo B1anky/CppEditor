@@ -7,15 +7,21 @@
 
 //Forward declarations are faster for compilation
 class Highlighter;
-class QKeyEvent;
 class TextEditorLineNumberArea;
+class TextOverviewTextEdit;
 class AnimatedHoverScrollBar;
 
+class QVBoxLayout;
+class QKeyEvent;
 class QPaintEvent;
 class QResizeEvent;
 class QSize;
 
 class TextEditor : public QPlainTextEdit{
+
+    Q_OBJECT
+
+    friend class TextOverviewTextEdit;
 
 public:
 
@@ -35,6 +41,10 @@ protected:
     void unindentHelper(QTextCursor& cur, const QString& curLineString, QVector<int>& offsetAccumVec, int lineSpan, int origPos = 0);
 
 
+protected slots:
+    void onTextChanged();
+    void scrollOverview(int scrollValue);
+    void highlightInOverviewtextEdit();
 private slots:
 
     void updateLineNumberAreaWidth(int newBlockCount);
@@ -49,6 +59,10 @@ private:
     QTextCursor               m_selectBlockAnchor;
     AnimatedHoverScrollBar*   m_horizontalScrollBar;
     AnimatedHoverScrollBar*   m_verticalScrollBar;
+    TextOverviewTextEdit*     m_textOverviewTextEdit;
+    int                       m_textOverviewTextEditMaxWidth;
+    Highlighter*              m_textOverviewHighlighter;
+    QVBoxLayout*              m_textOverviewTextEditLayout;
 
 };
 

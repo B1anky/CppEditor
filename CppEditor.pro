@@ -21,7 +21,8 @@ SOURCES += \
     CppEditorToolBar.cpp \
     TreeView.cpp \
     TextEditorLineNumberArea.cpp \
-    AnimatedHoverScrollBar.cpp
+    AnimatedHoverScrollBar.cpp \
+    TextOverviewTextEdit.cpp
 
 
 HEADERS += \
@@ -32,6 +33,7 @@ HEADERS += \
     CppEditorToolBar.h \
     TreeView.h \
     TextEditorLineNumberArea.h \
-    AnimatedHoverScrollBar.h
+    AnimatedHoverScrollBar.h \
+    TextOverviewTextEdit.h
 
 

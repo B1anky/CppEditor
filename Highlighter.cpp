@@ -1,7 +1,7 @@
 #include "Highlighter.h"
 #include "TextEditor.h"
 
-Highlighter::Highlighter(TextEditor* parent)
+Highlighter::Highlighter(QPlainTextEdit* parent)
     : QSyntaxHighlighter(parent)
 {
     HighlightingRule rule;

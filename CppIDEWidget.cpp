@@ -54,6 +54,11 @@ void CppIDEWidget::setupCentralWidget(){
     m_centralWidgetHLayout = new QHBoxLayout;
     m_centralWidget->setLayout(m_centralWidgetHLayout);
 
+    m_centralWidget->setObjectName("CppIDEWidget");
+    m_centralWidget->setStyleSheet("#CppIDEWidget{"
+                                   "    background-color: solid rgba(0,0,0,0);"
+                                   "}");
+
     m_treeView = new TreeView;
     m_splitter = new QSplitter;
     m_editor   = new TextEditor(true);
