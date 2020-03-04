@@ -1,6 +1,8 @@
 #include "Highlighter.h"
 #include "TextEditor.h"
 
+#include <QDebug>
+
 Highlighter::Highlighter(QPlainTextEdit* parent)
     : QSyntaxHighlighter(parent)
 {
@@ -99,8 +101,7 @@ Highlighter::Highlighter(QPlainTextEdit* parent)
     commentEndExpression = QRegularExpression(QStringLiteral("\\*/"));
 }
 
-void Highlighter::highlightBlock(const QString &text)
-{
+void Highlighter::highlightBlock(const QString &text){
     for (const HighlightingRule &rule : qAsConst(highlightingRules)) {
         QRegularExpressionMatchIterator matchIterator = rule.pattern.globalMatch(text);
         while (matchIterator.hasNext()) {

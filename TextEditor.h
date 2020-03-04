@@ -33,7 +33,8 @@ public:
 protected:
 
     void resizeEvent(QResizeEvent *event) override;
-    void keyPressEvent(QKeyEvent* keyEvent);
+    void keyPressEvent(QKeyEvent* keyEvent) override;
+    void keyReleaseEvent(QKeyEvent* keyEvent) override;
 
     void indent();
     void indentHelper(QTextCursor& cursor, const QString& insertChars, int& lineSpan, int& offsetMult);

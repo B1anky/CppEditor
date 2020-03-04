@@ -10,6 +10,7 @@
 #include <QGuiApplication>
 #include <QWindow>
 #include <QScreen>
+#include <QPushButton>
 
 #include <QDebug>
 
@@ -54,7 +55,8 @@ TextEditor::TextEditor(bool tabsAsSpaces, QWidget* parent) :
     m_textOverviewTextEdit->setFont(tinyFont);
     //setTab
     QPalette palette(this->palette());
-    palette.setBrush(QPalette::Base, QColor(20, 25, 31));
+    QColor baseColor(20, 25, 31);
+    palette.setBrush(QPalette::Base, baseColor);
     palette.setBrush(QPalette::Text, QColor(208, 223, 230));
     palette.setColor(QPalette::Inactive, QPalette::Highlight, palette.color(QPalette::Active, QPalette::Highlight));
     palette.setColor(QPalette::Inactive, QPalette::Text, palette.color(QPalette::Active, QPalette::Text));
@@ -74,17 +76,15 @@ TextEditor::TextEditor(bool tabsAsSpaces, QWidget* parent) :
 
     updateLineNumberAreaWidth(0);
     highlightCurrentLine();
-/*
+
     this->setVerticalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAlwaysOn);
     this->setHorizontalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAlwaysOn);
-    QWidget* test = new QWidget(this);
-    test->setPalette(palette);
-    test->setFixedHeight(50);
-    test->setFixedWidth(50);
 
-    setCornerWidget(test);
-    test->show();
-*/
+    //This covers the bottom right when the scrol bars are present so that the overview doesn't bleed through
+    QWidget* cornerWidget = new QWidget;
+    cornerWidget->setStyleSheet(QString("background-color: rgb(%0,%1,%2);").arg(baseColor.red()).arg(baseColor.green()).arg(baseColor.blue()));
+    setCornerWidget(cornerWidget);
+
 }
 
 int TextEditor::lineNumberAreaWidth(){
@@ -119,15 +119,15 @@ void TextEditor::updateLineNumberArea(const QRect &rect, int dy){
 }
 
 void TextEditor::resizeEvent(QResizeEvent *e){    
+
     QPlainTextEdit::resizeEvent(e);
-    qDebug() << "WHY AM I RESIZING";
+
     QRect cr = contentsRect();
     double curScreenMaxWidth = static_cast<double>(this->window()->windowHandle()->screen()->availableGeometry().width());
     m_textOverviewTextEdit->setFixedWidth((m_textOverviewTextEditMaxWidth / curScreenMaxWidth) * this->width());
     m_lineNumberArea->setGeometry(QRect(cr.left(), cr.top(), lineNumberAreaWidth(), cr.height()));
     m_textOverviewTextEdit->setGeometry(QRect(cr.right() - m_textOverviewTextEdit->width(), cr.top(), m_textOverviewTextEdit->width(), cr.height()));
-    m_textOverviewTextEdit->verticalScrollBar()->setMaximum(this->verticalScrollBar()->maximum());
-    m_textOverviewTextEdit->horizontalScrollBar()->setValue(m_textOverviewTextEdit->horizontalScrollBar()->minimum());
+    scrollOverview(this->verticalScrollBar()->value()); //This will sync overview, since it's not a wheel event
 
 }
 
@@ -162,8 +162,8 @@ void TextEditor::lineNumberAreaPaintEvent(QPaintEvent *event){
           QString number = QString::number(blockNumber + 1);
           painter.setPen(QColor(225, 225, 225));
           painter.setFont(this->font());
-          painter.drawText(0, top, m_lineNumberArea->width(), fontMetrics().height(),
-                           Qt::AlignCenter, number);
+          painter.drawText(0, top, m_lineNumberArea->width() - 10, fontMetrics().height(),
+                           Qt::AlignRight, number);
         }
 
         block = block.next();
@@ -197,7 +197,25 @@ void TextEditor::keyPressEvent(QKeyEvent* keyEvent){
         return;
     }
 
+    //Copies this to the overview pane more efficiently than a setPlainText(this->toPlainText()) would
+    QKeyEvent copyEvent(QEvent::KeyPress, keyEvent->key(), keyEvent->modifiers(), keyEvent->nativeScanCode(), keyEvent->nativeVirtualKey(), keyEvent->nativeModifiers(), keyEvent->text(), keyEvent->isAutoRepeat(), keyEvent->count());
+    m_textOverviewTextEdit->keyPressEvent(&copyEvent);
+
     QPlainTextEdit::keyPressEvent(keyEvent);
+
+    scrollOverview(this->verticalScrollBar()->value());
+
+}
+
+void TextEditor::keyReleaseEvent(QKeyEvent* keyEvent){
+
+    //Copies this to the overview pane more efficiently than a setPlainText(this->toPlainText()) would
+    QKeyEvent copyEvent(QEvent::KeyRelease, keyEvent->key(), keyEvent->modifiers(), keyEvent->nativeScanCode(), keyEvent->nativeVirtualKey(), keyEvent->nativeModifiers(), keyEvent->text(), keyEvent->isAutoRepeat(), keyEvent->count());
+    m_textOverviewTextEdit->keyReleaseEvent(&copyEvent);
+
+    QPlainTextEdit::keyReleaseEvent(keyEvent);
+
+    m_textOverviewTextEdit->verticalScrollBar()->setValue(this->verticalScrollBar()->value());
 
 }
 
@@ -311,6 +329,7 @@ void TextEditor::unindent(){
 
         }else{                    //-> leftMouseClick + moved up or shift + key_up
 
+            //TODO figure out why this case doesn't work, but the inverse does
             cur.setPosition(origEnd - std::accumulate(offsetAccumVec.begin(), offsetAccumVec.end(), 0), QTextCursor::MoveAnchor);
             //This will drag up all of the way to the first selected line
             cur.movePosition(QTextCursor::Up, QTextCursor::KeepAnchor, origLineSpan);
@@ -332,7 +351,7 @@ void TextEditor::unindentHelper(QTextCursor& cur, const QString& curLineString, 
     int lineStartCaretPos = isAtFrontOfLineCur.position();
 
     //Finds first non-whitespace character on a line
-    unsigned int wordStart = curLineString.toStdString().find_first_not_of(' ');
+    std::size_t wordStart = curLineString.toStdString().find_first_not_of(' ');
 
     //If we're on a line that's empty, save for maybe a "\n" we want to ignore the untab operation
     if((lineSpan == 0 && currentCaretPos == lineStartCaretPos) || wordStart == 0){
@@ -392,7 +411,7 @@ void TextEditor::unindentHelper(QTextCursor& cur, const QString& curLineString, 
 
 //Sync Overview text with TextEditor text
 void TextEditor::onTextChanged(){
-    m_textOverviewTextEdit->setPlainText(this->toPlainText());
+    //m_textOverviewTextEdit->setPlainText(this->toPlainText());
     m_textOverviewTextEdit->verticalScrollBar()->setMaximum(this->verticalScrollBar()->maximum());
     m_textOverviewTextEdit->verticalScrollBar()->setValue(this->verticalScrollBar()->value());
     m_textOverviewTextEdit->horizontalScrollBar()->setValue(m_textOverviewTextEdit->horizontalScrollBar()->minimum());
@@ -408,9 +427,11 @@ void TextEditor::scrollOverview(int scrollValue){
 
 //Sync Overview highlighting with TextEditor highlighting
 void TextEditor::highlightInOverviewtextEdit(){
+
     QTextCursor cur = m_textOverviewTextEdit->textCursor();
     cur.setPosition(this->textCursor().selectionStart(), QTextCursor::MoveAnchor);
     cur.setPosition(this->textCursor().selectionEnd(),   QTextCursor::KeepAnchor);
     m_textOverviewTextEdit->setTextCursor(cur);
     m_textOverviewTextEdit->horizontalScrollBar()->setValue(m_textOverviewTextEdit->horizontalScrollBar()->minimum());
+
 }

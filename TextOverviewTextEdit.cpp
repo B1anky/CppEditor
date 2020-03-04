@@ -6,7 +6,7 @@
 TextOverviewTextEdit::TextOverviewTextEdit(QWidget* parent) : QPlainTextEdit(parent){
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    setReadOnly(true);
+    //setReadOnly(true);
     setFrameStyle(QFrame::NoFrame);
     setLineWrapMode(QPlainTextEdit::NoWrap);
     if(qobject_cast<TextEditor*>(parentWidget())){
@@ -26,19 +26,28 @@ void TextOverviewTextEdit::wheelEvent(QWheelEvent* event){
 }
 
 void TextOverviewTextEdit::keyPressEvent(QKeyEvent* event){
-    if(qobject_cast<TextEditor*>(parentWidget())){
-        qobject_cast<TextEditor*>(parentWidget())->keyPressEvent(event);
-    }else{
-        event->accept();
-    }
+
+    setReadOnly(false);
+
+    QPlainTextEdit::keyPressEvent(event);
+
+    setReadOnly(true);
+
 }
 
 void TextOverviewTextEdit::keyReleaseEvent(QKeyEvent* event){
+    /*
     if(qobject_cast<TextEditor*>(parentWidget())){
         qobject_cast<TextEditor*>(parentWidget())->keyReleaseEvent(event);
     }else{
         event->accept();
     }
+    */
+    setReadOnly(false);
+
+    QPlainTextEdit::keyPressEvent(event);
+
+    setReadOnly(true);
 }
 
 void TextOverviewTextEdit::mousePressEvent(QMouseEvent* event){

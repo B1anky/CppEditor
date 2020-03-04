@@ -7,6 +7,8 @@ class TextOverviewTextEdit : public QPlainTextEdit{
 
     Q_OBJECT
 
+    friend class TextEditor;
+
 public:
 
     TextOverviewTextEdit(QWidget* parent = nullptr);
